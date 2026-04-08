@@ -69,7 +69,7 @@ if st.button("Predict", key="predict_btn"):
     # ----------------------------
     st.subheader("🔍 Why this prediction?")
     st.write("Red → increases risk | Blue → decreases risk")
-
+    st.warning("⚠️ Note: Model predictions depend on training data patterns. Some features like supplier fragility may show unexpected influence due to data distribution.")
     explainer = shap.Explainer(model)
     shap_values = explainer(input_data)
 

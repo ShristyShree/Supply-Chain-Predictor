@@ -77,7 +77,7 @@ df[["freight cost (usd)", "line item insurance (usd)"]] = scaler.fit_transform(
 
 # Supplier fragility (past avg delay)
 df["supplier_fragility"] = df.groupby("vendor")["avg_delay_days"] \
-    .expanding().mean().shift().reset_index(level=0, drop=True)
+    .transform(lambda x: (x > 2).mean())
 
 # On-time rate (past)
 df["on_time_rate"] = df.groupby("vendor")["on_time"] \

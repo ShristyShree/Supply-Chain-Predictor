@@ -3,6 +3,8 @@ import pandas as pd
 import shap
 import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
 # ----------------------------
 # PAGE CONFIG
@@ -17,9 +19,23 @@ df = pd.read_csv("data/final_dataset.csv")
 X = df.drop("will_disrupt_in_next_7_days", axis=1)
 y = df["will_disrupt_in_next_7_days"]
 
-# Train model
-model = XGBClassifier(n_estimators=200, max_depth=6, learning_rate=0.05)
-model.fit(X, y)
+# ----------------------------
+# TRAIN MODELS
+# ----------------------------
+xgb = XGBClassifier(
+    n_estimators=200,
+    max_depth=6,
+    learning_rate=0.05,
+    random_state=42,
+    eval_metric='logloss'
+)
+
+rf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+lr = LogisticRegression(max_iter=2000)
+
+xgb.fit(X, y)
+rf.fit(X, y)
+lr.fit(X, y)
 
 # ----------------------------
 # RECOMMENDATION ENGINE
@@ -58,7 +74,7 @@ st.markdown("### 🔍 Predict shipment risks with explainable AI")
 st.divider()
 
 # ----------------------------
-# INPUT SECTION (SLIDERS)
+# INPUT SECTION
 # ----------------------------
 col1, col2 = st.columns(2)
 
@@ -94,31 +110,53 @@ input_data = pd.DataFrame([input_dict])
 input_data = input_data.reindex(columns=X.columns)
 
 # ----------------------------
-# CENTERED BUTTON
+# PREDICT BUTTON
 # ----------------------------
 center = st.columns([2, 1, 2])
 with center[1]:
     predict_btn = st.button("🚀 Predict", use_container_width=True)
 
 # ----------------------------
-# PREDICTION
+# PREDICTION LOGIC
 # ----------------------------
 if predict_btn:
-    pred = model.predict(input_data)[0]
-    prob = model.predict_proba(input_data)[0][1]
+
+    # Model probabilities
+    xgb_prob = xgb.predict_proba(input_data)[0][1]
+    rf_prob = rf.predict_proba(input_data)[0][1]
+    lr_prob = lr.predict_proba(input_data)[0][1]
+
+    # Ensemble
+    prob = (xgb_prob + rf_prob + lr_prob) / 3
+    pred = 1 if prob > 0.5 else 0
 
     st.divider()
 
     # ----------------------------
-    # CONFIDENCE DISPLAY
+    # MODEL PREDICTIONS
     # ----------------------------
-    st.subheader("📊 Prediction Confidence")
-    st.metric("Confidence Score", f"{prob:.2f}")
-    st.progress(float(prob))
+    st.subheader("🧠 Model Predictions")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("XGBoost", f"{xgb_prob:.2f}")
+
+    with col2:
+        st.metric("Random Forest", f"{rf_prob:.2f}")
+
+    with col3:
+        st.metric("Logistic Regression", f"{lr_prob:.2f}")
 
     # ----------------------------
-    # RISK LEVEL
+    # ENSEMBLE RESULT
     # ----------------------------
+    st.subheader("🤖 Final Ensemble Decision")
+
+    st.metric("Final Probability", f"{prob:.2f}")
+    st.progress(float(prob))
+
+    # Risk level
     if prob > 0.8:
         st.error("🔴 HIGH RISK")
     elif prob > 0.5:
@@ -127,7 +165,7 @@ if predict_btn:
         st.success("🟢 LOW RISK")
 
     # ----------------------------
-    # RESULT
+    # FINAL RESULT
     # ----------------------------
     if pred == 1:
         st.error(f"🚨 Disruption Risk! Probability: {prob:.2f}")
@@ -156,9 +194,9 @@ if predict_btn:
     st.subheader("🔍 Why this prediction?")
     st.caption("🔴 Red = increases risk | 🔵 Blue = decreases risk")
 
-    st.warning(" Model predictions depend on training data patterns.")
+    st.warning("⚠️ Model predictions depend on training data patterns.")
 
-    explainer = shap.Explainer(model)
+    explainer = shap.Explainer(xgb)
     shap_values = explainer(input_data)
 
     fig, ax = plt.subplots()
@@ -168,4 +206,4 @@ if predict_btn:
     plt.close(fig)
 
 else:
-    st.info("Adjust inputs and click Predict ")
+    st.info("Adjust inputs and click Predict 🚀")

@@ -2,13 +2,14 @@ import pandas as pd
 import shap
 import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, roc_auc_score
 
 # ----------------------------
 # LOAD DATA
 # ----------------------------
-df = pd.read_csv("../data/final_dataset.csv")
-
+df = pd.read_csv("data/final_dataset.csv")
 # ----------------------------
 # TIME-BASED SPLIT (IMPORTANT)
 # ----------------------------
@@ -36,6 +37,20 @@ model = XGBClassifier(
 )
 
 model.fit(X_train, y_train)
+
+# ----------------------------
+# RANDOM FOREST
+# ----------------------------
+rf = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+rf.fit(X_train, y_train)
+rf_pred = rf.predict(X_test)
+
+# ----------------------------
+# LOGISTIC REGRESSION
+# ----------------------------
+lr = LogisticRegression(max_iter=2000)
+lr.fit(X_train, y_train)
+lr_pred = lr.predict(X_test)
 
 # ----------------------------
 # PREDICTIONS
@@ -79,3 +94,13 @@ shap.plots.bar(shap_values)
 # 3. SINGLE PREDICTION (WATERFALL)
 # ----------------------------
 shap.plots.waterfall(shap_values[0])
+
+ensemble_pred = (
+    model.predict(X_test) +
+    rf.predict(X_test) +
+    lr.predict(X_test)
+) >= 2
+
+ensemble_pred = ensemble_pred.astype(int)
+
+print("Ensemble Accuracy:", accuracy_score(y_test, ensemble_pred))
